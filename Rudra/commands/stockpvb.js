@@ -3,10 +3,10 @@ const { setData, getData } = require("../../database.js");
 
 module.exports.config = {
   name: "pvbstock",
-  version: "3.7.0",
+  version: "3.8.0",
   hasPermssion: 0,
   credits: "Jaylord La Peña + ChatGPT",
-  description: "PVBR auto-stock aligned exactly every 1,6,11,16,21,26,31,36,41,46,51,56 mins, no spam, with rare seed alerts",
+  description: "PVBR auto-stock aligned every 1,6,11,16,21,26,31,36,41,46,51,56 mins +20s delay, no spam, with rare seed alerts",
   usePrefix: true,
   commandCategory: "pvb tools",
   usages: "/pvbstock on|off|check",
@@ -83,13 +83,13 @@ async function fetchPVBRStock() {
   }
 }
 
-// 🕒 Every 1,6,11,16,21,26,31,36,41,46,51,56 mins (no seconds)
+// 🕒 Aligned times +20s delay
 function getNextRestock() {
   const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" }));
   const m = now.getMinutes();
   const next = new Date(now);
 
-  const restockMinutes = [1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56];
+  const restockMinutes = [1,6,11,16,21,26,31,36,41,46,51,56];
 
   const nextM = restockMinutes.find(min => min > m);
   if (nextM !== undefined) {
@@ -99,7 +99,7 @@ function getNextRestock() {
     next.setMinutes(1);
   }
 
-  next.setSeconds(0);
+  next.setSeconds(20); // +20 seconds delay
   next.setMilliseconds(0);
   return next;
 }
@@ -115,13 +115,11 @@ async function sendStock(threadID, api) {
   const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" }));
   const next = getNextRestock();
 
-  const minsLeft = Math.round((next - now) / 60000);
-
   const msg = `
 ╭───────────────╮
 🌱 𝗣𝗹𝗮𝗻𝘁𝘀 𝘃𝘀 𝗕𝗿𝗮𝗶𝗻𝗿𝗼𝘁𝘀 𝗦𝘁𝗼𝗰𝗸 🌱
 🕒 Current Time: ${now.toLocaleTimeString("en-PH", { hour12: true })}
-🕒 Next Restock: ${next.toLocaleTimeString("en-PH", { hour12: true })} (${minsLeft} mins)
+🕒 Next Restock: ${next.toLocaleTimeString("en-PH", { hour12: true })}
 ╰───────────────╯
 
 ╭─🌿 Seeds───────╮
@@ -134,7 +132,7 @@ ${formatItems(gear)}
 
   await api.sendMessage(msg, threadID);
 
-  // 🚨 Alert for rare seeds
+  // 🚨 Rare seed alerts
   const rare = seeds.filter(s => ["godly", "secret"].includes(getRarity(s.name)));
   if (rare.length) {
     const alert = `🚨 RARE SEED DETECTED 🚨\n\n${rare
@@ -149,14 +147,13 @@ ${formatItems(gear)}
   }
 }
 
-// 🔁 No spam: triggers only when exact restock hits
+// 🔁 Scheduling
 function scheduleNext(threadID, api) {
   const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" }));
   const next = getNextRestock();
   let delay = next.getTime() - now.getTime();
 
   if (delay < 0) delay += 5 * 60 * 1000;
-
   if (autoStockTimers[threadID]) clearTimeout(autoStockTimers[threadID]);
 
   autoStockTimers[threadID] = setTimeout(async () => {
@@ -180,7 +177,7 @@ function stopAutoStock(threadID) {
   }
 }
 
-// ⚙️ Command handler
+// ⚙️ Commands
 module.exports.run = async function({ api, event, args }) {
   const { threadID, messageID } = event;
   const option = args[0]?.toLowerCase();
@@ -191,7 +188,7 @@ module.exports.run = async function({ api, event, args }) {
     gcData.enabled = true;
     await setData(`pvbstock/${threadID}`, gcData);
     startAutoStock(threadID, api);
-    return api.sendMessage("✅ PVBR Auto-stock enabled. Aligned every 1,6,11,16,21,26,31,36,41,46,51,56 minutes.", threadID, messageID);
+    return api.sendMessage("✅ PVBR Auto-stock enabled. Runs every 1,6,11,... +20s delay.", threadID, messageID);
   }
 
   if (option === "off") {
@@ -208,7 +205,7 @@ module.exports.run = async function({ api, event, args }) {
   return api.sendMessage("⚙️ Usage: /pvbstock on|off|check", threadID, messageID);
 };
 
-// 🔄 Resume after restart
+// 🔄 Resume on restart
 module.exports.onLoad = async function({ api }) {
   const allGCs = (await getData("pvbstock")) || {};
   for (const tid in allGCs) {
