@@ -17,6 +17,7 @@ const OWNER_UID = "61559999326713";
 // 🔹 Midman IDs
 const MIDMANS = [
   { id: "61563731477181", tag: "Klenth Jarred Dalupan" },
+  { id: "100055876922755", tag: "Ryril (MM/PETHOLD)🎱" },
   { id: "61565984310103", tag: "Kio |~Midman🌟" },
   { id: "100010941167906", tag: "Geloo (MOD/MM)🐣" },
   { id: "100092250956643", tag: "Nics (MOD/MM)🐻" },
