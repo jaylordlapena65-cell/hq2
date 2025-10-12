@@ -3,10 +3,10 @@ const { setData, getData } = require("../../database.js");
 
 module.exports.config = {
   name: "pvbstock",
-  version: "3.6.0",
+  version: "3.7.0",
   hasPermssion: 0,
   credits: "Jaylord La Peña + ChatGPT",
-  description: "PVBR auto-stock aligned exactly every 5 mins + 20s, no spam, with rare seed alerts",
+  description: "PVBR auto-stock aligned exactly every 1,6,11,16,21,26,31,36,41,46,51,56 mins, no spam, with rare seed alerts",
   usePrefix: true,
   commandCategory: "pvb tools",
   usages: "/pvbstock on|off|check",
@@ -83,19 +83,24 @@ async function fetchPVBRStock() {
   }
 }
 
-// 🕒 Every 5 mins + 20s exact (00:20, 05:20, 10:20, etc.)
+// 🕒 Every 1,6,11,16,21,26,31,36,41,46,51,56 mins (no seconds)
 function getNextRestock() {
   const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" }));
   const m = now.getMinutes();
   const next = new Date(now);
 
-  const nextM = Math.ceil((m + 0.1) / 5) * 5; // round up to next 5
-  if (nextM >= 60) next.setHours(next.getHours() + 1);
+  const restockMinutes = [1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56];
 
-  next.setMinutes(nextM % 60);
-  next.setSeconds(20);
+  const nextM = restockMinutes.find(min => min > m);
+  if (nextM !== undefined) {
+    next.setMinutes(nextM);
+  } else {
+    next.setHours(next.getHours() + 1);
+    next.setMinutes(1);
+  }
+
+  next.setSeconds(0);
   next.setMilliseconds(0);
-
   return next;
 }
 
@@ -110,11 +115,13 @@ async function sendStock(threadID, api) {
   const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" }));
   const next = getNextRestock();
 
+  const minsLeft = Math.round((next - now) / 60000);
+
   const msg = `
 ╭───────────────╮
 🌱 𝗣𝗹𝗮𝗻𝘁𝘀 𝘃𝘀 𝗕𝗿𝗮𝗶𝗻𝗿𝗼𝘁𝘀 𝗦𝘁𝗼𝗰𝗸 🌱
 🕒 Current Time: ${now.toLocaleTimeString("en-PH", { hour12: true })}
-🕒 Next Restock: ${next.toLocaleTimeString("en-PH", { hour12: true })}
+🕒 Next Restock: ${next.toLocaleTimeString("en-PH", { hour12: true })} (${minsLeft} mins)
 ╰───────────────╯
 
 ╭─🌿 Seeds───────╮
@@ -184,7 +191,7 @@ module.exports.run = async function({ api, event, args }) {
     gcData.enabled = true;
     await setData(`pvbstock/${threadID}`, gcData);
     startAutoStock(threadID, api);
-    return api.sendMessage("✅ PVBR Auto-stock enabled. Exact restock timing set every 5 mins + 20s.", threadID, messageID);
+    return api.sendMessage("✅ PVBR Auto-stock enabled. Aligned every 1,6,11,16,21,26,31,36,41,46,51,56 minutes.", threadID, messageID);
   }
 
   if (option === "off") {
