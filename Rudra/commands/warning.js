@@ -26,8 +26,7 @@ const racistWords = [
 ];
 
 const allowedLinks = [
-  "facebook.com","fb.com","facebook.com/groups","fb.com/groups",
-  "m.me/j","tiktok.com","youtube.com","youtu.be","roblox.com"
+  "facebook.com","fb.com","facebook.com/groups","fb.com/groups","tiktok.com","youtube.com","youtu.be","roblox.com"
 ];
 
 const messages = {
