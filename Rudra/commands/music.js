@@ -2,10 +2,10 @@ const axios = require("axios");
 
 module.exports.config = {
   name: "music",
-  version: "1.0.5",
+  version: "1.0.6",
   hasPermission: 0,
   credits: "Jaylord La Peña + ChatGPT",
-  description: "Play music using KojaXD API (5-minute cooldown per user)",
+  description: "Play music using KojaXD API",
   commandCategory: "music",
   usages: "/music <song title>",
   cooldowns: 5
@@ -19,6 +19,7 @@ module.exports.run = async function ({ api, event, args }) {
   const query = args.join(" ");
   const now = Date.now();
 
+  // ⏳ Cooldown
   if (userCooldowns[senderID] && now - userCooldowns[senderID] < COOLDOWN_MS) {
     const remaining = Math.ceil((COOLDOWN_MS - (now - userCooldowns[senderID])) / 60000);
     return api.sendMessage(
@@ -30,7 +31,7 @@ module.exports.run = async function ({ api, event, args }) {
 
   if (!query) {
     return api.sendMessage(
-      "❌ Please provide a song title.\nExample: /music Multo",
+      "❌ Please provide a song title.\nExample: /music multo",
       threadID,
       messageID
     );
@@ -47,21 +48,28 @@ module.exports.run = async function ({ api, event, args }) {
       }
     );
 
-    if (!res.data || res.data.status !== true || !res.data.data) {
-      return api.sendMessage("⚠️ No results found.", threadID, messageID);
+    // 🔍 Debug (pwede mo alisin pag ok na)
+    console.log("RAW API RESPONSE:\n", JSON.stringify(res.data, null, 2));
+
+    // ✅ FLEXIBLE RESPONSE HANDLING
+    const music =
+      res.data?.data ||
+      res.data?.result ||
+      res.data;
+
+    if (!music || !music.audio) {
+      return api.sendMessage("⚠️ Music not found.", threadID, messageID);
     }
 
-    const music = res.data.data;
+    // 🎶 SEND MUSIC (SEARCH = TITLE)
+    const audioStream = await axios.get(music.audio, {
+      responseType: "stream"
+    });
 
-    if (!music.audio) {
-      return api.sendMessage("⚠️ Audio not available.", threadID, messageID);
-    }
-
-    // ✅ SEARCH QUERY AS TITLE
     api.sendMessage(
       {
         body: `🎶 ${query}`,
-        attachment: await getStreamFromURL(music.audio)
+        attachment: audioStream.data
       },
       threadID
     );
@@ -69,12 +77,7 @@ module.exports.run = async function ({ api, event, args }) {
     userCooldowns[senderID] = now;
 
   } catch (err) {
-    console.error("Music Error:", err);
-    api.sendMessage("⚠️ Failed to fetch music.", threadID, messageID);
+    console.error("Music Error:", err.response?.data || err.message);
+    api.sendMessage("⚠️ Error fetching music.", threadID, messageID);
   }
 };
-
-async function getStreamFromURL(url) {
-  const res = await axios.get(url, { responseType: "stream" });
-  return res.data;
-}
