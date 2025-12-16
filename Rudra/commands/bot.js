@@ -14,7 +14,7 @@ module.exports.config = {
 module.exports.run = async function () {};
 
 // ❌ BAD WORDS (for AI response)
-const bannedWords = ["amp", "weh", "bobo", "tanga"];
+const bannedWords = ["amp", "weh", "bobo", "gago", "tanga"];
 
 // 🧹 FILTER AI RESPONSE
 function filterResponse(text) {
