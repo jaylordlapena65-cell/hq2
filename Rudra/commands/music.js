@@ -2,12 +2,12 @@ const axios = require("axios");
 
 module.exports.config = {
   name: "music",
-  version: "1.0.6",
+  version: "2.0.0",
   hasPermission: 0,
   credits: "Jaylord La Peña + ChatGPT",
-  description: "Play music using KojaXD API",
+  description: "Play music using KojaXD API (5-minute cooldown per user)",
   commandCategory: "music",
-  usages: "/music <song title>",
+  usages: "/music <song>",
   cooldowns: 5
 };
 
@@ -19,9 +19,11 @@ module.exports.run = async function ({ api, event, args }) {
   const query = args.join(" ");
   const now = Date.now();
 
-  // ⏳ Cooldown
+  // ⏳ 5 MINUTES PER USER
   if (userCooldowns[senderID] && now - userCooldowns[senderID] < COOLDOWN_MS) {
-    const remaining = Math.ceil((COOLDOWN_MS - (now - userCooldowns[senderID])) / 60000);
+    const remaining = Math.ceil(
+      (COOLDOWN_MS - (now - userCooldowns[senderID])) / 60000
+    );
     return api.sendMessage(
       `⏳ Please wait ${remaining} minute(s) before using /music again.`,
       threadID,
@@ -38,33 +40,17 @@ module.exports.run = async function ({ api, event, args }) {
   }
 
   try {
-    const res = await axios.get(
+    // 🎧 DIRECT AUDIO STREAM (NO JSON)
+    const audioStream = await axios.get(
       "https://api.kojaxd.dpdns.org/play/youtube",
       {
         params: {
           apikey: "Koja",
           query
-        }
+        },
+        responseType: "stream" // 🔥 IMPORTANT
       }
     );
-
-    // 🔍 Debug (pwede mo alisin pag ok na)
-    console.log("RAW API RESPONSE:\n", JSON.stringify(res.data, null, 2));
-
-    // ✅ FLEXIBLE RESPONSE HANDLING
-    const music =
-      res.data?.data ||
-      res.data?.result ||
-      res.data;
-
-    if (!music || !music.audio) {
-      return api.sendMessage("⚠️ Music not found.", threadID, messageID);
-    }
-
-    // 🎶 SEND MUSIC (SEARCH = TITLE)
-    const audioStream = await axios.get(music.audio, {
-      responseType: "stream"
-    });
 
     api.sendMessage(
       {
@@ -74,10 +60,15 @@ module.exports.run = async function ({ api, event, args }) {
       threadID
     );
 
+    // start cooldown AFTER success
     userCooldowns[senderID] = now;
 
   } catch (err) {
-    console.error("Music Error:", err.response?.data || err.message);
-    api.sendMessage("⚠️ Error fetching music.", threadID, messageID);
+    console.error("Music Error:", err.message);
+    api.sendMessage(
+      "⚠️ Failed to fetch music. Try again later.",
+      threadID,
+      messageID
+    );
   }
 };
