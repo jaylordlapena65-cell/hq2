@@ -1,33 +1,25 @@
 const axios = require("axios");
-const fs = require("fs");
-const https = require("https");
 
 module.exports.config = {
   name: "music",
-  version: "1.0.2",
+  version: "1.0.3",
   hasPermission: 0,
   credits: "Jaylord La Peña + ChatGPT",
-  description: "Play music using AryanAPI (5-minute cooldown per user)",
+  description: "Play music using KojaXD API (5-minute cooldown per user)",
   commandCategory: "music",
-  usages: `
-🎵 /music <title>
-   - Plays music using YouTube API
-
-📌 Example:
-   /music Upuan by Gloc 9
-`,
+  usages: "/music <song title>",
   cooldowns: 5
 };
 
-const COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
-let userCooldowns = {}; // { senderID: timestamp }
+const COOLDOWN_MS = 5 * 60 * 1000;
+let userCooldowns = {};
 
-module.exports.run = async function({ api, event, args }) {
+module.exports.run = async function ({ api, event, args }) {
   const { threadID, senderID, messageID } = event;
   const query = args.join(" ");
-
-  // ⏳ Check cooldown
   const now = Date.now();
+
+  // ⏳ Cooldown check
   if (userCooldowns[senderID] && now - userCooldowns[senderID] < COOLDOWN_MS) {
     const remaining = Math.ceil((COOLDOWN_MS - (now - userCooldowns[senderID])) / 60000);
     return api.sendMessage(
@@ -38,76 +30,84 @@ module.exports.run = async function({ api, event, args }) {
   }
 
   if (!query) {
-    return api.sendMessage("❌ Please provide a song title.\n\nExample: /music Upuan by Gloc 9", threadID, messageID);
+    return api.sendMessage(
+      "❌ Please provide a song title.\nExample: /music Multo",
+      threadID,
+      messageID
+    );
   }
 
   try {
-    // 🎧 Fetch from AryanAPI
-    const response = await axios.get(`https://aryanapi.up.railway.app/api/youtubeplay?query=${encodeURIComponent(query)}`);
+    // 🎧 KojaXD API request
+    const res = await axios.get(
+      `https://api.kojaxd.dpdns.org/play/youtube`,
+      {
+        params: {
+          apikey: "Koja",
+          query: query
+        }
+      }
+    );
 
-    console.log("API Response:", response.data);  // Log the response data for debugging
+    console.log("KojaXD API Response:", res.data);
 
-    if (!response.data || !response.data.status || !response.data.data) {
-      return api.sendMessage("⚠️ No results found for that song.", threadID, messageID);
+    if (!res.data || !res.data.status || !res.data.result) {
+      return api.sendMessage("⚠️ No results found.", threadID, messageID);
     }
 
-    const music = response.data.data;
+    const music = res.data.result;
 
     if (!music.audio) {
-      return api.sendMessage("⚠️ The audio for this song could not be fetched. Please try another song.", threadID, messageID);
+      return api.sendMessage("⚠️ Audio not available for this song.", threadID, messageID);
     }
 
-    // 🪄 Create info message
-    const infoMsg = 
+    const infoMsg =
 `🎧 Now Playing:
 ${music.title}
 
-👤 Artist: ${music.video.author}
-⏱ Duration: ${music.video.timestamp}
-👀 Views: ${music.video.views.toLocaleString()}
-📺 YouTube: ${music.video.url}
+👤 Artist: ${music.author}
+⏱ Duration: ${music.duration}
+👀 Views: ${music.views?.toLocaleString() || "N/A"}
+📺 YouTube: ${music.url}
 
 🎵 Downloading audio, please wait...`;
 
-    // Send song info with thumbnail
     api.sendMessage(
       {
         body: infoMsg,
-        attachment: await getStreamFromURL(music.thumbnail) // Use the fixed function
+        attachment: await getStreamFromURL(music.thumbnail)
       },
       threadID,
       async () => {
         try {
-          // Fetch the audio using axios (to handle redirects properly)
           const audioStream = await axios.get(music.audio, {
-            responseType: 'stream', // Stream the MP3 file
+            responseType: "stream"
           });
 
-          // Send the audio as an attachment
-          api.sendMessage({ body: `🎶 ${music.title}`, attachment: audioStream.data }, threadID);
+          api.sendMessage(
+            {
+              body: `🎶 ${music.title}`,
+              attachment: audioStream.data
+            },
+            threadID
+          );
 
-          // Start cooldown timer
-          userCooldowns[senderID] = now; 
+          userCooldowns[senderID] = now;
         } catch (err) {
-          console.error("Error fetching audio stream:", err);
-          api.sendMessage("❌ Failed to stream the audio file. The link might be broken.", threadID);
+          console.error("Audio Stream Error:", err);
+          api.sendMessage("❌ Failed to stream audio.", threadID);
         }
       }
     );
 
   } catch (err) {
-    console.error("API Request Error:", err);  // Log the full error to the console
-    return api.sendMessage("⚠️ Error fetching music from the API. Try again later.", threadID, messageID);
+    console.error("KojaXD API Error:", err);
+    api.sendMessage("⚠️ Error fetching music. Try again later.", threadID, messageID);
   }
 };
 
-// New function to get the stream from a URL for the thumbnail
+// 🖼 Thumbnail stream helper
 async function getStreamFromURL(url) {
-  try {
-    const response = await axios.get(url, { responseType: 'stream' });
-    return response.data;
-  } catch (err) {
-    console.error("Error fetching thumbnail stream:", err);
-    throw new Error("Failed to fetch thumbnail stream");
-  }
+  const res = await axios.get(url, { responseType: "stream" });
+  return res.data;
 }
