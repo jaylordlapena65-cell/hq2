@@ -24,7 +24,7 @@ module.exports.handleEvent = async function ({ api, event, Users }) {
     const message = event.body.toLowerCase();
 
     // ✅ trigger words
-    const triggers = ["bot", "ai", "assistant"];
+    const triggers = ["bot", "assistant"];
 
     if (!triggers.some(word => message.includes(word))) return;
 
