@@ -2,10 +2,10 @@ const axios = require("axios");
 
 module.exports.config = {
   name: "server",
-  version: "1.1.0",
+  version: "1.0.0",
   hasPermission: 0,
   credits: "ChatGPT",
-  description: "Check Minecraft server status (MCZIE Panel)",
+  description: "Check Pterodactyl Client API connection",
   commandCategory: "minecraft",
   usages: "/server",
   cooldowns: 5
@@ -14,75 +14,61 @@ module.exports.config = {
 module.exports.run = async function ({ api, event }) {
   const { threadID, messageID } = event;
 
-  const PANEL_URL = process.env.PANEL_URL;
-  const API_KEY = process.env.PANEL_API_KEY;
-  const SERVER_ID = process.env.SERVER_ID;
-
-  if (!PANEL_URL || !API_KEY || !SERVER_ID) {
-    return api.sendMessage(
-      "❌ Kulang ang PANEL_URL / PANEL_API_KEY / SERVER_ID sa Render.",
-      threadID,
-      messageID
-    );
-  }
+  // 🔧 CONFIG (pwede mo ilipat sa env kung gusto mo)
+  const PANEL_URL = "https://srv.mcziehost.fun";
+  const API_KEY = "PTLC_API_KEY_MO_DITO"; // ⚠️ palitan mo
 
   try {
-    // 🔹 SERVER INFO
-    const info = await axios.get(
-      `${PANEL_URL}/api/client/servers/${SERVER_ID}`,
+    const res = await axios.get(
+      `${PANEL_URL}/api/client`,
       {
         headers: {
           Authorization: `Bearer ${API_KEY}`,
           Accept: "application/json",
-          "Content-Type": "application/json",
           "User-Agent": "Mozilla/5.0"
-        }
+        },
+        timeout: 15000
       }
     );
 
-    // 🔹 SERVER RESOURCES (ONLINE, RAM, CPU)
-    const resources = await axios.get(
-      `${PANEL_URL}/api/client/servers/${SERVER_ID}/resources`,
-      {
-        headers: {
-          Authorization: `Bearer ${API_KEY}`,
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          "User-Agent": "Mozilla/5.0"
-        }
-      }
-    );
+    if (!res.data || !res.data.data) {
+      return api.sendMessage(
+        "❌ Walang data na nakuha sa API.",
+        threadID,
+        messageID
+      );
+    }
 
-    const server = info.data.attributes;
-    const stats = resources.data.attributes;
+    const servers = res.data.data;
 
-    const status = stats.current_state;
-    const emoji = status === "running" ? "🟢" : "🔴";
+    if (!servers.length) {
+      return api.sendMessage(
+        "⚠️ Connected sa API pero walang server sa account.",
+        threadID,
+        messageID
+      );
+    }
 
-    const ram = (stats.resources.memory_bytes / 1024 / 1024).toFixed(0);
-    const ramLimit = (stats.limits.memory / 1024).toFixed(0);
+    let msg = `✅ API CONNECTED\n\n📦 Servers found: ${servers.length}\n\n`;
 
-    const cpu = stats.resources.cpu_absolute.toFixed(1);
+    servers.forEach((s, i) => {
+      const a = s.attributes;
+      msg +=
+        `${i + 1}. ${a.name}\n` +
+        `🆔 ID: ${a.identifier}\n\n`;
+    });
 
-    const uptime = Math.floor(stats.resources.uptime / 1000);
-
-    const message =
-`${emoji} SERVER STATUS
-
-📛 Name: ${server.name}
-⚙️ Status: ${status.toUpperCase()}
-
-🧠 RAM: ${ram}MB / ${ramLimit}MB
-🔥 CPU: ${cpu}%
-⏱️ Uptime: ${uptime}s
-`;
-
-    return api.sendMessage(message, threadID, messageID);
+    return api.sendMessage(msg, threadID, messageID);
 
   } catch (err) {
-    console.log("SERVER ERROR:", err.response?.data || err.message);
+    console.log("API ERROR:", err.response?.data || err.message);
+
     return api.sendMessage(
-      "❌ Hindi maka-connect sa panel API.\nSiguraduhin tama ang API KEY at SERVER ID.",
+      "❌ Hindi maka-connect sa Client API.\n" +
+      "Possible causes:\n" +
+      "- Mali ang API key\n" +
+      "- Cloudflare blocking datacenter IP\n" +
+      "- Client API disabled sa panel",
       threadID,
       messageID
     );
