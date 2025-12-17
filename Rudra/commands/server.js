@@ -16,7 +16,7 @@ module.exports.run = async function ({ api, event }) {
 
   // 🔧 CONFIG (pwede mo ilipat sa env kung gusto mo)
   const PANEL_URL = "https://srv.mcziehost.fun";
-  const API_KEY = "PTLC_API_KEY_MO_DITO"; // ⚠️ palitan mo
+  const API_KEY = "ptlc_A1NKxUqf01Q0wJ4z8azwTcZbWGItRm2Uud0zuCKxNIT"; // ⚠️ palitan mo
 
   try {
     const res = await axios.get(
