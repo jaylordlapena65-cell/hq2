@@ -2,10 +2,10 @@ const axios = require("axios");
 
 module.exports.config = {
   name: "server",
-  version: "1.0.0",
+  version: "1.1.0",
   hasPermission: 0,
   credits: "ChatGPT",
-  description: "Check Minecraft server status",
+  description: "Check Minecraft server status & players",
   commandCategory: "minecraft",
   usages: "/server",
   cooldowns: 5
@@ -14,8 +14,8 @@ module.exports.config = {
 module.exports.run = async function ({ api, event }) {
   const { threadID, messageID } = event;
 
-  // 🔑 galing sa Render Environment Variables
-  const PANEL_URL = process.env.PANEL_URL;
+  // 🔑 Render ENV variables
+  const PANEL_URL = process.env.PANEL_URL; // https://srv.mcziehost.fun
   const API_KEY = process.env.PANEL_API_KEY;
 
   if (!PANEL_URL || !API_KEY) {
@@ -27,19 +27,18 @@ module.exports.run = async function ({ api, event }) {
   }
 
   try {
-    // 📡 tawag sa Pterodactyl API
-    const res = await axios.get(
+    // 1️⃣ Kunin server list
+    const serverList = await axios.get(
       `${PANEL_URL}/api/client`,
       {
         headers: {
           Authorization: `Bearer ${API_KEY}`,
-          Accept: "application/json"
+          Accept: "application/vnd.pterodactyl.v1+json"
         }
       }
     );
 
-    const servers = res.data.data;
-    if (!servers || !servers.length) {
+    if (!serverList.data.data.length) {
       return api.sendMessage(
         "❌ Walang server na makita sa panel.",
         threadID,
@@ -47,16 +46,39 @@ module.exports.run = async function ({ api, event }) {
       );
     }
 
-    // 👉 first server lang
-    const server = servers[0].attributes;
+    // 👉 unang server lang
+    const server = serverList.data.data[0].attributes;
+    const serverId = server.identifier;
 
-    const status = server.status || "offline";
-    const emoji = status === "running" ? "🟢" : "🔴";
+    // 2️⃣ Kunin resources (status + players)
+    const resources = await axios.get(
+      `${PANEL_URL}/api/client/servers/${serverId}/resources`,
+      {
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          Accept: "application/vnd.pterodactyl.v1+json"
+        }
+      }
+    );
+
+    const data = resources.data.attributes;
+
+    const isOnline = data.current_state === "running";
+    const emoji = isOnline ? "🟢" : "🔴";
+
+    const playersOnline = data.resources?.players?.online ?? 0;
+    const playersMax = data.resources?.players?.max ?? "Unknown";
+
+    const cpu = data.resources.cpu_absolute.toFixed(1);
+    const ram = Math.round(data.resources.memory_bytes / 1024 / 1024);
 
     return api.sendMessage(
       `${emoji} SERVER STATUS\n\n` +
       `📌 Name: ${server.name}\n` +
-      `⚙️ Status: ${status.toUpperCase()}`,
+      `⚙️ Status: ${isOnline ? "ONLINE" : "OFFLINE"}\n` +
+      `👥 Players: ${playersOnline} / ${playersMax}\n` +
+      `🧠 CPU: ${cpu}%\n` +
+      `💾 RAM: ${ram} MB`,
       threadID,
       messageID
     );
