@@ -2,29 +2,16 @@ const axios = require("axios");
 
 module.exports.config = {
   name: "sim",
-  version: "1.0.3",
+  version: "1.0.4",
   hasPermssion: 0,
   credits: "ChatGPT",
-  description: "Auto AI response when bot is mentioned (clean input + filtered output)",
+  description: "Auto AI response when bot is mentioned (no filter)",
   commandCategory: "no-prefix",
   usages: "",
   cooldowns: 0
 };
 
 module.exports.run = async function () {};
-
-// ❌ BAD WORDS (for AI response)
-const bannedWords = ["amp", "weh", "bobo", "gago", "tanga"];
-
-// 🧹 FILTER AI RESPONSE
-function filterResponse(text) {
-  let result = text;
-  bannedWords.forEach(word => {
-    const regex = new RegExp(`\\b${word}\\b`, "gi");
-    result = result.replace(regex, "*".repeat(word.length));
-  });
-  return result;
-}
 
 // 🧹 REMOVE BOT WORD FROM PROMPT
 function cleanPrompt(text) {
@@ -50,29 +37,23 @@ module.exports.handleEvent = async function ({ api, event, Users }) {
 
     const name = await Users.getNameUser(event.senderID);
 
-    // 🧹 CLEAN PROMPT (tanggal "bot")
+    // 🧹 CLEAN PROMPT
     const prompt = cleanPrompt(event.body);
-
-    if (!prompt) return; // pag "bot" lang ang message
+    if (!prompt) return;
 
     const res = await axios.get(
-      "https://norch-project.gleeze.com/api/sim",
+      "https://urangkapolka.vercel.app/api/simsimi",
       {
         params: {
-          prompt: prompt,
-          uid: event.senderID,
-          name: name
+          query: prompt
         }
       }
     );
 
-    if (!res.data || !res.data.reply) return;
-
-    // 🧹 FILTER AI RESPONSE
-    const cleanReply = filterResponse(res.data.reply);
+    if (!res.data || !res.data.result || !res.data.result.reply) return;
 
     return api.sendMessage(
-      cleanReply,
+      res.data.result.reply,
       event.threadID,
       event.messageID
     );
