@@ -3,74 +3,89 @@ const axios = require("axios");
 module.exports.config = {
   name: "server",
   version: "1.0.0",
-  hasPermission: 0,
+  hasPermssion: 0,
   credits: "ChatGPT",
-  description: "Check Pterodactyl Client API connection",
-  commandCategory: "minecraft",
+  description: "Minecraft server status (Requests plugin)",
+  commandCategory: "info",
   usages: "/server",
   cooldowns: 5
 };
 
 module.exports.run = async function ({ api, event }) {
-  const { threadID, messageID } = event;
-
-  // 🔧 CONFIG (pwede mo ilipat sa env kung gusto mo)
-  const PANEL_URL = "https://srv.mcziehost.fun";
-  const API_KEY = "ptlc_A1NKxUqf01Q0wJ4z8azwTcZbWGItRm2Uud0zuCKxNIT"; // ⚠️ palitan mo
-
   try {
-    const res = await axios.get(
-      `${PANEL_URL}/api/client`,
-      {
-        headers: {
-          Authorization: `Bearer ${API_KEY}`,
-          Accept: "application/json",
-          "User-Agent": "Mozilla/5.0"
-        },
-        timeout: 15000
+    const API_URL = "http://bcs2.ph1-mczie.fun:4174/server";
+    const API_KEY = "5PQkdVARhSfzsyEesI8LQKfZy1ELnl6ZHJSLa9FBE2H8i4xDeDrKNyzfvL0dqUsxxSU3FmEXbiqRgo4NxKnqB9FsziGAgRIEDFDw";
+
+    const res = await axios.get(API_URL, {
+      headers: {
+        Authorization: `Bearer ${API_KEY}`,
+        "User-Agent": "MC-Bot/1.0"
       }
-    );
+    });
 
     if (!res.data || !res.data.data) {
       return api.sendMessage(
-        "❌ Walang data na nakuha sa API.",
-        threadID,
-        messageID
+        "❌ Walang server data na nakuha.",
+        event.threadID,
+        event.messageID
       );
     }
 
-    const servers = res.data.data;
+    const data = res.data.data;
 
-    if (!servers.length) {
-      return api.sendMessage(
-        "⚠️ Connected sa API pero walang server sa account.",
-        threadID,
-        messageID
-      );
-    }
+    // 🧾 BASIC INFO
+    const name = data.motd
+      ? data.motd.replace(/§.|&./g, "")
+      : data.name;
 
-    let msg = `✅ API CONNECTED\n\n📦 Servers found: ${servers.length}\n\n`;
+    const version = data.version;
 
-    servers.forEach((s, i) => {
-      const a = s.attributes;
-      msg +=
-        `${i + 1}. ${a.name}\n` +
-        `🆔 ID: ${a.identifier}\n\n`;
-    });
+    // 👥 PLAYERS
+    const online = data.players.playerCount.online;
+    const max = data.players.playerCount.max;
 
-    return api.sendMessage(msg, threadID, messageID);
+    // ⚡ TPS
+    const tps1 = data.health.tps.oneMinute.toFixed(2);
+    const tps5 = data.health.tps.fiveMinutes.toFixed(2);
+    const tps15 = data.health.tps.fifteenMinutes.toFixed(2);
+
+    // 🧠 MEMORY (MB)
+    const memUsed =
+      (data.health.memory.maxMemory - data.health.memory.freeMemory) / 1024 / 1024;
+    const memMax =
+      data.health.memory.maxMemory / 1024 / 1024;
+
+    // 🌍 DIMENSIONS
+    const nether = data.dimension.allowNether ? "✅" : "❌";
+    const end = data.dimension.allowEnd ? "✅" : "❌";
+
+    const message =
+`🎮 Minecraft Server Status
+
+📛 ${name}
+🧩 Version: ${version}
+
+👥 Players: ${online}/${max}
+
+⚡ TPS
+• 1m: ${tps1}
+• 5m: ${tps5}
+• 15m: ${tps15}
+
+🧠 RAM: ${memUsed.toFixed(0)}MB / ${memMax.toFixed(0)}MB
+
+🌍 Nether: ${nether}
+🌋 End: ${end}
+`;
+
+    return api.sendMessage(message, event.threadID, event.messageID);
 
   } catch (err) {
-    console.log("API ERROR:", err.response?.data || err.message);
-
+    console.log("REQUESTS API ERROR:", err.response?.data || err.message);
     return api.sendMessage(
-      "❌ Hindi maka-connect sa Client API.\n" +
-      "Possible causes:\n" +
-      "- Mali ang API key\n" +
-      "- Cloudflare blocking datacenter IP\n" +
-      "- Client API disabled sa panel",
-      threadID,
-      messageID
+      "❌ Hindi makakonek sa Minecraft server API.",
+      event.threadID,
+      event.messageID
     );
   }
 };
