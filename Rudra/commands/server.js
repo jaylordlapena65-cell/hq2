@@ -1,11 +1,12 @@
 const axios = require("axios");
+const https = require("https");
 
 module.exports.config = {
   name: "server",
-  version: "1.0.0",
+  version: "1.0.1",
   hasPermssion: 0,
   credits: "ChatGPT",
-  description: "Minecraft server status (Requests plugin)",
+  description: "Minecraft server status using Requests plugin",
   commandCategory: "info",
   usages: "/server",
   cooldowns: 5
@@ -13,19 +14,29 @@ module.exports.config = {
 
 module.exports.run = async function ({ api, event }) {
   try {
+    // 🔗 API SETTINGS
     const API_URL = "http://bcs2.ph1-mczie.fun:4174/server";
-    const API_KEY = "5PQkdVARhSfzsyEesI8LQKfZy1ELnl6ZHJSLa9FBE2H8i4xDeDrKNyzfvL0dqUsxxSU3FmEXbiqRgo4NxKnqB9FsziGAgRIEDFDw";
+    const API_KEY = "PUT_YOUR_API_KEY_HERE";
 
+    // 🔐 FIX SSL / CERT / TIMEOUT
+    const agent = new https.Agent({
+      rejectUnauthorized: false
+    });
+
+    // 📡 REQUEST
     const res = await axios.get(API_URL, {
       headers: {
         Authorization: `Bearer ${API_KEY}`,
         "User-Agent": "MC-Bot/1.0"
-      }
+      },
+      timeout: 10000,
+      httpsAgent: agent
     });
 
+    // ❌ INVALID RESPONSE
     if (!res.data || !res.data.data) {
       return api.sendMessage(
-        "❌ Walang server data na nakuha.",
+        "❌ Walang data na nakuha mula sa Minecraft server.",
         event.threadID,
         event.messageID
       );
@@ -33,8 +44,8 @@ module.exports.run = async function ({ api, event }) {
 
     const data = res.data.data;
 
-    // 🧾 BASIC INFO
-    const name = data.motd
+    // 🧾 SERVER INFO
+    const serverName = data.motd
       ? data.motd.replace(/§.|&./g, "")
       : data.name;
 
@@ -59,10 +70,11 @@ module.exports.run = async function ({ api, event }) {
     const nether = data.dimension.allowNether ? "✅" : "❌";
     const end = data.dimension.allowEnd ? "✅" : "❌";
 
+    // 📩 MESSAGE
     const message =
 `🎮 Minecraft Server Status
 
-📛 ${name}
+📛 ${serverName}
 🧩 Version: ${version}
 
 👥 Players: ${online}/${max}
@@ -81,9 +93,15 @@ module.exports.run = async function ({ api, event }) {
     return api.sendMessage(message, event.threadID, event.messageID);
 
   } catch (err) {
-    console.log("REQUESTS API ERROR:", err.response?.data || err.message);
+    // 🧪 FULL DEBUG
+    console.log("==== REQUESTS API ERROR ====");
+    console.log("CODE:", err.code);
+    console.log("MESSAGE:", err.message);
+    console.log("RESPONSE:", err.response?.data);
+    console.log("============================");
+
     return api.sendMessage(
-      "❌ Hindi makakonek sa Minecraft server API.",
+      "❌ Hindi makakonek sa Minecraft server API.\nCheck console logs.",
       event.threadID,
       event.messageID
     );
